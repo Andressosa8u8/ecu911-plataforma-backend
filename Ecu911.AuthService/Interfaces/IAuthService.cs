@@ -6,14 +6,21 @@ namespace Ecu911.AuthService.Interfaces;
 public interface IAuthService
 {
     Task<UserDto> CreateUserAsync(CreateUserDto input);
-    Task<Role> CreateRoleAsync(CreateRoleDto input);
-    Task AssignRoleAsync(Guid userId, Guid roleId);
+    Task<UserDto?> UpdateUserAsync(Guid userId, UpdateUserDto input);
     Task<List<UserDto>> GetUsersAsync();
+
+    Task<Role> CreateRoleAsync(CreateRoleDto input);
+    Task<List<RoleDto>> GetRolesAsync();
+    Task AssignRoleAsync(Guid userId, Guid roleId);
+
     Task<UserDto?> GetCurrentUserAsync(Guid userId);
     Task<LoginResponseDto?> LoginAsync(LoginDto input);
+    Task<LoginResponseDto> SelectSystemAsync(Guid userId, SelectSystemDto input);
+
     Task<SystemModuleDto> CreateSystemModuleAsync(CreateSystemModuleDto input);
     Task<List<SystemModuleDto>> GetSystemModulesAsync();
     Task AssignUserSystemRoleAsync(AssignUserSystemRoleDto input);
+
     Task<PermissionDto> CreatePermissionAsync(CreatePermissionDto input);
     Task<List<PermissionDto>> GetPermissionsAsync();
     Task AssignRolePermissionAsync(AssignRolePermissionDto input);

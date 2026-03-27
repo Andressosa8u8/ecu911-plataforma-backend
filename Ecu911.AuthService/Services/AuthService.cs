@@ -53,9 +53,9 @@ public class AuthService : IAuthService
 
         var user = new User
         {
-            Username = input.Username,
-            FullName = input.FullName,
-            Email = input.Email,
+            Username = input.Username.Trim(),
+            FullName = input.FullName.Trim(),
+            Email = input.Email.Trim(),
             PasswordHash = PasswordHelper.HashPassword(input.Password),
             IsActive = true,
             OrganizationalUnitId = input.OrganizationalUnitId
@@ -72,7 +72,52 @@ public class AuthService : IAuthService
             IsActive = created.IsActive,
             CreatedAt = created.CreatedAt,
             OrganizationalUnitId = created.OrganizationalUnitId,
-            Roles = new List<string>()
+            Roles = new List<string>(),
+            Systems = new List<string>(),
+            CurrentSystem = null
+        };
+    }
+
+    public async Task<UserDto?> UpdateUserAsync(Guid userId, UpdateUserDto input)
+    {
+        var user = await _context.Users
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .Include(u => u.UserSystemRoles)
+                .ThenInclude(usr => usr.SystemModule)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null)
+            return null;
+
+        var existingWithSameUsername = await _userRepository.GetByUsernameAsync(input.Username);
+        if (existingWithSameUsername != null && existingWithSameUsername.Id != userId)
+            throw new Exception("Ya existe otro usuario con ese nombre de usuario.");
+
+        user.Username = input.Username.Trim();
+        user.FullName = input.FullName.Trim();
+        user.Email = input.Email.Trim();
+        user.IsActive = input.IsActive;
+        user.OrganizationalUnitId = input.OrganizationalUnitId;
+
+        await _context.SaveChangesAsync();
+
+        return new UserDto
+        {
+            Id = user.Id,
+            Username = user.Username,
+            FullName = user.FullName,
+            Email = user.Email,
+            IsActive = user.IsActive,
+            CreatedAt = user.CreatedAt,
+            OrganizationalUnitId = user.OrganizationalUnitId,
+            Roles = user.UserRoles.Select(ur => ur.Role.Name).Distinct().ToList(),
+            Systems = user.UserSystemRoles
+                .Where(usr => usr.SystemModule != null)
+                .Select(usr => usr.SystemModule.Code)
+                .Distinct()
+                .ToList(),
+            CurrentSystem = null
         };
     }
 
@@ -89,6 +134,18 @@ public class AuthService : IAuthService
         };
 
         return await _roleRepository.AddAsync(role);
+    }
+
+    public async Task<List<RoleDto>> GetRolesAsync()
+    {
+        var roles = await _roleRepository.GetAllAsync();
+
+        return roles.Select(x => new RoleDto
+        {
+            Id = x.Id,
+            Name = x.Name,
+            Description = x.Description
+        }).ToList();
     }
 
     public async Task AssignRoleAsync(Guid userId, Guid roleId)
@@ -158,102 +215,34 @@ public class AuthService : IAuthService
         if (!PasswordHelper.VerifyPassword(input.Password, user.PasswordHash))
             return null;
 
-        var globalRoles = user.UserRoles
-            .Where(x => x.Role != null)
-            .Select(x => x.Role.Name)
-            .Distinct()
-            .ToList();
-
-        var isGlobalAdmin = globalRoles.Contains("ADMIN");
-
-        SystemModule? currentSystem = null;
-        List<string> effectiveRoles = new(globalRoles);
-
-        var availableSystems = user.UserSystemRoles
-            .Where(x => x.SystemModule != null && x.SystemModule.IsActive)
-            .Select(x => x.SystemModule.Code)
-            .Distinct()
-            .ToList();
-
         if (!string.IsNullOrWhiteSpace(normalizedSystemCode))
         {
-            currentSystem = await _systemModuleRepository.GetByCodeAsync(normalizedSystemCode);
-
-            if (currentSystem == null || !currentSystem.IsActive)
-                throw new Exception("El sistema especificado no existe o está inactivo.");
-
-            var systemRoles = user.UserSystemRoles
-                .Where(x => x.SystemModuleId == currentSystem.Id)
-                .Select(x => x.Role.Name)
-                .Distinct()
-                .ToList();
-
-            if (!isGlobalAdmin && !systemRoles.Any())
-                throw new Exception("El usuario no tiene acceso al sistema solicitado.");
-
-            effectiveRoles = globalRoles
-                .Concat(systemRoles)
-                .Distinct()
-                .ToList();
-        }
-        else
-        {
-            if (!isGlobalAdmin)
-                throw new Exception("Debe especificar el código del sistema para iniciar sesión.");
+            return await BuildScopedLoginResponseAsync(user, normalizedSystemCode);
         }
 
-        var claims = new List<Claim>
+        return BuildBaseLoginResponse(user);
+    }
+
+    public async Task<LoginResponseDto> SelectSystemAsync(Guid userId, SelectSystemDto input)
     {
-        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-        new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
-        new Claim("fullName", user.FullName),
-        new Claim(JwtRegisteredClaimNames.Email, user.Email)
-    };
+        if (string.IsNullOrWhiteSpace(input.SystemCode))
+            throw new Exception("El código del sistema es obligatorio.");
 
-        if (user.OrganizationalUnitId.HasValue)
-        {
-            claims.Add(new Claim("organizationalUnitId", user.OrganizationalUnitId.Value.ToString()));
-        }
+        var normalizedSystemCode = input.SystemCode.Trim().ToUpperInvariant();
 
-        if (currentSystem != null)
-        {
-            claims.Add(new Claim("system_code", currentSystem.Code));
-            claims.Add(new Claim("system_name", currentSystem.Name));
-        }
+        var user = await _context.Users
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .Include(u => u.UserSystemRoles)
+                .ThenInclude(usr => usr.Role)
+            .Include(u => u.UserSystemRoles)
+                .ThenInclude(usr => usr.SystemModule)
+            .FirstOrDefaultAsync(u => u.Id == userId);
 
-        claims.AddRange(effectiveRoles.Select(role => new Claim(ClaimTypes.Role, role)));
+        if (user == null || !user.IsActive)
+            throw new Exception("Usuario no encontrado o inactivo.");
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var expireMinutes = int.Parse(_configuration["Jwt:ExpireMinutes"]!);
-        var expiration = DateTime.UtcNow.AddMinutes(expireMinutes);
-
-        var token = new JwtSecurityToken(
-            issuer: _configuration["Jwt:Issuer"],
-            audience: _configuration["Jwt:Audience"],
-            claims: claims,
-            expires: expiration,
-            signingCredentials: creds
-        );
-
-        return new LoginResponseDto
-        {
-            Token = new JwtSecurityTokenHandler().WriteToken(token),
-            Expiration = expiration,
-            User = new UserDto
-            {
-                Id = user.Id,
-                Username = user.Username,
-                FullName = user.FullName,
-                Email = user.Email,
-                IsActive = user.IsActive,
-                CreatedAt = user.CreatedAt,
-                OrganizationalUnitId = user.OrganizationalUnitId,
-                Roles = effectiveRoles,
-                Systems = availableSystems,
-                CurrentSystem = currentSystem?.Code
-            }
-        };
+        return await BuildScopedLoginResponseAsync(user, normalizedSystemCode);
     }
 
     public async Task<SystemModuleDto> CreateSystemModuleAsync(CreateSystemModuleDto input)
@@ -489,5 +478,148 @@ public class AuthService : IAuthService
             Systems = systems,
             CurrentSystem = null
         };
+    }
+
+    private LoginResponseDto BuildBaseLoginResponse(User user)
+    {
+        var globalRoles = user.UserRoles
+            .Where(x => x.Role != null)
+            .Select(x => x.Role.Name)
+            .Distinct()
+            .ToList();
+
+        var availableSystems = user.UserSystemRoles
+            .Where(x => x.SystemModule != null && x.SystemModule.IsActive)
+            .Select(x => x.SystemModule.Code)
+            .Distinct()
+            .ToList();
+
+        var claims = new List<Claim>
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
+            new Claim("fullName", user.FullName),
+            new Claim(JwtRegisteredClaimNames.Email, user.Email)
+        };
+
+        if (user.OrganizationalUnitId.HasValue)
+        {
+            claims.Add(new Claim("organizationalUnitId", user.OrganizationalUnitId.Value.ToString()));
+        }
+
+        claims.AddRange(globalRoles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+        var expiration = DateTime.UtcNow.AddMinutes(int.Parse(_configuration["Jwt:ExpireMinutes"]!));
+        var token = BuildJwtToken(claims, expiration);
+
+        return new LoginResponseDto
+        {
+            Token = token,
+            Expiration = expiration,
+            User = new UserDto
+            {
+                Id = user.Id,
+                Username = user.Username,
+                FullName = user.FullName,
+                Email = user.Email,
+                IsActive = user.IsActive,
+                CreatedAt = user.CreatedAt,
+                OrganizationalUnitId = user.OrganizationalUnitId,
+                Roles = globalRoles,
+                Systems = availableSystems,
+                CurrentSystem = null
+            }
+        };
+    }
+
+    private async Task<LoginResponseDto> BuildScopedLoginResponseAsync(User user, string systemCode)
+    {
+        var globalRoles = user.UserRoles
+            .Where(x => x.Role != null)
+            .Select(x => x.Role.Name)
+            .Distinct()
+            .ToList();
+
+        var isGlobalAdmin = globalRoles.Contains("ADMIN");
+
+        var availableSystems = user.UserSystemRoles
+            .Where(x => x.SystemModule != null && x.SystemModule.IsActive)
+            .Select(x => x.SystemModule.Code)
+            .Distinct()
+            .ToList();
+
+        var currentSystem = await _systemModuleRepository.GetByCodeAsync(systemCode);
+
+        if (currentSystem == null || !currentSystem.IsActive)
+            throw new Exception("El sistema especificado no existe o está inactivo.");
+
+        var systemRoles = user.UserSystemRoles
+            .Where(x => x.SystemModuleId == currentSystem.Id)
+            .Select(x => x.Role.Name)
+            .Distinct()
+            .ToList();
+
+        if (!isGlobalAdmin && !systemRoles.Any())
+            throw new Exception("El usuario no tiene acceso al sistema solicitado.");
+
+        var effectiveRoles = globalRoles
+            .Concat(systemRoles)
+            .Distinct()
+            .ToList();
+
+        var claims = new List<Claim>
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
+            new Claim("fullName", user.FullName),
+            new Claim(JwtRegisteredClaimNames.Email, user.Email),
+            new Claim("system_code", currentSystem.Code),
+            new Claim("system_name", currentSystem.Name)
+        };
+
+        if (user.OrganizationalUnitId.HasValue)
+        {
+            claims.Add(new Claim("organizationalUnitId", user.OrganizationalUnitId.Value.ToString()));
+        }
+
+        claims.AddRange(effectiveRoles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+        var expiration = DateTime.UtcNow.AddMinutes(int.Parse(_configuration["Jwt:ExpireMinutes"]!));
+        var token = BuildJwtToken(claims, expiration);
+
+        return new LoginResponseDto
+        {
+            Token = token,
+            Expiration = expiration,
+            User = new UserDto
+            {
+                Id = user.Id,
+                Username = user.Username,
+                FullName = user.FullName,
+                Email = user.Email,
+                IsActive = user.IsActive,
+                CreatedAt = user.CreatedAt,
+                OrganizationalUnitId = user.OrganizationalUnitId,
+                Roles = effectiveRoles,
+                Systems = availableSystems,
+                CurrentSystem = currentSystem.Code
+            }
+        };
+    }
+
+    private string BuildJwtToken(List<Claim> claims, DateTime expiration)
+    {
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: _configuration["Jwt:Issuer"],
+            audience: _configuration["Jwt:Audience"],
+            claims: claims,
+            expires: expiration,
+            signingCredentials: creds
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }

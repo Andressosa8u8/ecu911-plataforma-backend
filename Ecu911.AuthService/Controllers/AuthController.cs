@@ -48,6 +48,20 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("select-system")]
+    public async Task<IActionResult> SelectSystem([FromBody] SelectSystemDto input)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                         ?? User.FindFirstValue(ClaimTypes.Name)
+                         ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized("No se pudo identificar al usuario autenticado.");
+
+        var result = await _authService.SelectSystemAsync(userId, input);
+        return Ok(result);
+    }
+
     [Authorize(Roles = "ADMIN")]
     [HttpGet("users")]
     public async Task<IActionResult> GetUsers()
@@ -57,10 +71,30 @@ public class AuthController : ControllerBase
     }
 
     [Authorize(Roles = "ADMIN")]
+    [HttpGet("roles")]
+    public async Task<IActionResult> GetRoles()
+    {
+        var result = await _authService.GetRolesAsync();
+        return Ok(result);
+    }
+
+    [Authorize(Roles = "ADMIN")]
     [HttpPost("users")]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserDto input)
     {
         var result = await _authService.CreateUserAsync(input);
+        return Ok(result);
+    }
+
+    [Authorize(Roles = "ADMIN")]
+    [HttpPut("users/{userId:guid}")]
+    public async Task<IActionResult> UpdateUser(Guid userId, [FromBody] UpdateUserDto input)
+    {
+        var result = await _authService.UpdateUserAsync(userId, input);
+
+        if (result == null)
+            return NotFound("Usuario no encontrado.");
+
         return Ok(result);
     }
 
