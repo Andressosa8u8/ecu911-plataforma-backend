@@ -47,40 +47,58 @@ public class AuthService : IAuthService
 
     public async Task<UserDto> CreateUserAsync(CreateUserDto input)
     {
-        var existing = await _userRepository.GetByUsernameAsync(input.Username);
-        if (existing != null)
+        var normalizedUsername = input.Username.Trim();
+        var normalizedEmail = input.Email.Trim().ToLowerInvariant();
+        var normalizedCedula = input.Cedula.Trim();
+
+        var existingByUsername = await _userRepository.GetByUsernameAsync(normalizedUsername);
+        if (existingByUsername != null)
             throw new Exception("El nombre de usuario ya existe.");
+
+        var existingByEmail = await _userRepository.GetByEmailAsync(normalizedEmail);
+        if (existingByEmail != null)
+            throw new Exception("Ya existe un usuario con ese correo electrónico.");
+
+        var existingByCedula = await _userRepository.GetByCedulaAsync(normalizedCedula);
+        if (existingByCedula != null)
+            throw new Exception("Ya existe un usuario con esa cédula.");
+
+        var nombres = input.Nombres.Trim();
+        var apellidos = input.Apellidos.Trim();
 
         var user = new User
         {
-            Username = input.Username.Trim(),
-            FullName = input.FullName.Trim(),
-            Email = input.Email.Trim(),
+            Username = normalizedUsername,
             PasswordHash = PasswordHelper.HashPassword(input.Password),
+
+            Nombres = nombres,
+            Apellidos = apellidos,
+            Cedula = normalizedCedula,
+
+            Email = normalizedEmail,
+            Telefono = input.Telefono.Trim(),
+
+            Cargo = input.Cargo.Trim(),
+
+            ProvinciaId = input.ProvinciaId,
+            CantonId = input.CantonId,
+            CentroZonalId = input.CentroZonalId,
+
             IsActive = true,
-            OrganizationalUnitId = input.OrganizationalUnitId
+            OrganizationalUnitId = input.OrganizationalUnitId,
+            UpdatedAt = DateTime.UtcNow
         };
 
         var created = await _userRepository.AddAsync(user);
-
-        return new UserDto
-        {
-            Id = created.Id,
-            Username = created.Username,
-            FullName = created.FullName,
-            Email = created.Email,
-            IsActive = created.IsActive,
-            CreatedAt = created.CreatedAt,
-            OrganizationalUnitId = created.OrganizationalUnitId,
-            Roles = new List<string>(),
-            Systems = new List<string>(),
-            CurrentSystem = null
-        };
+        return MapUserDto(created);
     }
 
     public async Task<UserDto?> UpdateUserAsync(Guid userId, UpdateUserDto input)
     {
         var user = await _context.Users
+            .Include(u => u.Provincia)
+            .Include(u => u.Canton)
+            .Include(u => u.CentroZonal)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .Include(u => u.UserSystemRoles)
@@ -90,35 +108,46 @@ public class AuthService : IAuthService
         if (user == null)
             return null;
 
-        var existingWithSameUsername = await _userRepository.GetByUsernameAsync(input.Username);
+        var normalizedUsername = input.Username.Trim();
+        var normalizedEmail = input.Email.Trim().ToLowerInvariant();
+        var normalizedCedula = input.Cedula.Trim();
+
+        var existingWithSameUsername = await _userRepository.GetByUsernameAsync(normalizedUsername);
         if (existingWithSameUsername != null && existingWithSameUsername.Id != userId)
             throw new Exception("Ya existe otro usuario con ese nombre de usuario.");
 
-        user.Username = input.Username.Trim();
-        user.FullName = input.FullName.Trim();
-        user.Email = input.Email.Trim();
+        var existingWithSameEmail = await _userRepository.GetByEmailAsync(normalizedEmail);
+        if (existingWithSameEmail != null && existingWithSameEmail.Id != userId)
+            throw new Exception("Ya existe otro usuario con ese correo electrónico.");
+
+        var existingWithSameCedula = await _userRepository.GetByCedulaAsync(normalizedCedula);
+        if (existingWithSameCedula != null && existingWithSameCedula.Id != userId)
+            throw new Exception("Ya existe otro usuario con esa cédula.");
+
+        var nombres = input.Nombres.Trim();
+        var apellidos = input.Apellidos.Trim();
+
+        user.Username = normalizedUsername;
+
+        user.Nombres = nombres;
+        user.Apellidos = apellidos;
+        user.Cedula = normalizedCedula;
+
+        user.Email = normalizedEmail;
+        user.Telefono = input.Telefono.Trim();
+
+        user.Cargo = input.Cargo.Trim();
+
+        user.ProvinciaId = input.ProvinciaId;
+        user.CantonId = input.CantonId;
+        user.CentroZonalId = input.CentroZonalId;
+
         user.IsActive = input.IsActive;
         user.OrganizationalUnitId = input.OrganizationalUnitId;
+        user.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
-
-        return new UserDto
-        {
-            Id = user.Id,
-            Username = user.Username,
-            FullName = user.FullName,
-            Email = user.Email,
-            IsActive = user.IsActive,
-            CreatedAt = user.CreatedAt,
-            OrganizationalUnitId = user.OrganizationalUnitId,
-            Roles = user.UserRoles.Select(ur => ur.Role.Name).Distinct().ToList(),
-            Systems = user.UserSystemRoles
-                .Where(usr => usr.SystemModule != null)
-                .Select(usr => usr.SystemModule.Code)
-                .Distinct()
-                .ToList(),
-            CurrentSystem = null
-        };
+        return MapUserDto(user);
     }
 
     public async Task<Role> CreateRoleAsync(CreateRoleDto input)
@@ -174,32 +203,11 @@ public class AuthService : IAuthService
     public async Task<List<UserDto>> GetUsersAsync()
     {
         var users = await _userRepository.GetAllAsync();
-
-        return users.Select(x => new UserDto
-        {
-            Id = x.Id,
-            Username = x.Username,
-            FullName = x.FullName,
-            Email = x.Email,
-            IsActive = x.IsActive,
-            CreatedAt = x.CreatedAt,
-            OrganizationalUnitId = x.OrganizationalUnitId,
-            Roles = x.UserRoles.Select(ur => ur.Role.Name).Distinct().ToList(),
-            Systems = x.UserSystemRoles
-                .Where(usr => usr.SystemModule != null)
-                .Select(usr => usr.SystemModule.Code)
-                .Distinct()
-                .ToList(),
-            CurrentSystem = null
-        }).ToList();
+        return users.Select(MapUserDto).ToList();
     }
 
     public async Task<LoginResponseDto?> LoginAsync(LoginDto input)
     {
-        var normalizedSystemCode = string.IsNullOrWhiteSpace(input.SystemCode)
-            ? null
-            : input.SystemCode.Trim().ToUpperInvariant();
-
         var user = await _context.Users
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
@@ -215,10 +223,9 @@ public class AuthService : IAuthService
         if (!PasswordHelper.VerifyPassword(input.Password, user.PasswordHash))
             return null;
 
-        if (!string.IsNullOrWhiteSpace(normalizedSystemCode))
-        {
-            return await BuildScopedLoginResponseAsync(user, normalizedSystemCode);
-        }
+        user.LastLoginAt = DateTime.UtcNow;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
 
         return BuildBaseLoginResponse(user);
     }
@@ -453,31 +460,7 @@ public class AuthService : IAuthService
         if (user == null)
             return null;
 
-        var roles = user.UserRoles
-            .Where(x => x.Role != null)
-            .Select(x => x.Role.Name)
-            .Distinct()
-            .ToList();
-
-        var systems = user.UserSystemRoles
-            .Where(x => x.SystemModule != null && x.SystemModule.IsActive)
-            .Select(x => x.SystemModule.Code)
-            .Distinct()
-            .ToList();
-
-        return new UserDto
-        {
-            Id = user.Id,
-            Username = user.Username,
-            FullName = user.FullName,
-            Email = user.Email,
-            IsActive = user.IsActive,
-            CreatedAt = user.CreatedAt,
-            OrganizationalUnitId = user.OrganizationalUnitId,
-            Roles = roles,
-            Systems = systems,
-            CurrentSystem = null
-        };
+        return MapUserDto(user);
     }
 
     private LoginResponseDto BuildBaseLoginResponse(User user)
@@ -498,7 +481,7 @@ public class AuthService : IAuthService
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
-            new Claim("fullName", user.FullName),
+            new Claim("fullName", BuildFullName(user.Nombres, user.Apellidos)),
             new Claim(JwtRegisteredClaimNames.Email, user.Email)
         };
 
@@ -516,19 +499,7 @@ public class AuthService : IAuthService
         {
             Token = token,
             Expiration = expiration,
-            User = new UserDto
-            {
-                Id = user.Id,
-                Username = user.Username,
-                FullName = user.FullName,
-                Email = user.Email,
-                IsActive = user.IsActive,
-                CreatedAt = user.CreatedAt,
-                OrganizationalUnitId = user.OrganizationalUnitId,
-                Roles = globalRoles,
-                Systems = availableSystems,
-                CurrentSystem = null
-            }
+            User = BuildLoginUserDto(user, globalRoles, availableSystems, null)
         };
     }
 
@@ -571,7 +542,7 @@ public class AuthService : IAuthService
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
-            new Claim("fullName", user.FullName),
+            new Claim("fullName", BuildFullName(user.Nombres, user.Apellidos)),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
             new Claim("system_code", currentSystem.Code),
             new Claim("system_name", currentSystem.Name)
@@ -591,35 +562,99 @@ public class AuthService : IAuthService
         {
             Token = token,
             Expiration = expiration,
-            User = new UserDto
-            {
-                Id = user.Id,
-                Username = user.Username,
-                FullName = user.FullName,
-                Email = user.Email,
-                IsActive = user.IsActive,
-                CreatedAt = user.CreatedAt,
-                OrganizationalUnitId = user.OrganizationalUnitId,
-                Roles = effectiveRoles,
-                Systems = availableSystems,
-                CurrentSystem = currentSystem.Code
-            }
+            User = BuildLoginUserDto(user, effectiveRoles, availableSystems, currentSystem.Code)
         };
     }
 
     private string BuildJwtToken(List<Claim> claims, DateTime expiration)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var secretKey = _configuration["Jwt:Key"];
+        if (string.IsNullOrWhiteSpace(secretKey))
+            throw new Exception("La clave JWT no está configurada.");
+
+        var issuer = _configuration["Jwt:Issuer"];
+        var audience = _configuration["Jwt:Audience"];
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
-            issuer: _configuration["Jwt:Issuer"],
-            audience: _configuration["Jwt:Audience"],
+            issuer: issuer,
+            audience: audience,
             claims: claims,
+            notBefore: DateTime.UtcNow,
             expires: expiration,
-            signingCredentials: creds
+            signingCredentials: credentials
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    private static string BuildFullName(string nombres, string apellidos)
+    {
+        return $"{nombres} {apellidos}".Trim();
+    }
+
+    private UserDto BuildLoginUserDto(
+        User user,
+        List<string> roles,
+        List<string> systems,
+        string? currentSystem)
+    {
+        return new UserDto
+        {
+            Id = user.Id,
+            Username = user.Username,
+            FullName = BuildFullName(user.Nombres, user.Apellidos),
+            Nombres = user.Nombres,
+            Apellidos = user.Apellidos,
+            Cedula = user.Cedula,
+            Email = user.Email,
+            Telefono = user.Telefono,
+            Cargo = user.Cargo,
+            ProvinciaId = user.ProvinciaId,
+            Provincia = user.Provincia?.Nombre ?? string.Empty,
+            CantonId = user.CantonId,
+            Canton = user.Canton?.Nombre ?? string.Empty,
+            CentroZonalId = user.CentroZonalId,
+            CentroZonal = user.CentroZonal?.Nombre ?? string.Empty,
+            IsActive = user.IsActive,
+            CreatedAt = user.CreatedAt,
+            UpdatedAt = user.UpdatedAt,
+            LastLoginAt = user.LastLoginAt,
+            OrganizationalUnitId = user.OrganizationalUnitId,
+            Roles = roles,
+            Systems = systems,
+            CurrentSystem = currentSystem
+        };
+    }
+
+    private UserDto MapUserDto(User user)
+    {
+        return new UserDto
+        {
+            Id = user.Id,
+            Username = user.Username,
+            FullName = BuildFullName(user.Nombres, user.Apellidos),
+            Nombres = user.Nombres,
+            Apellidos = user.Apellidos,
+            Cedula = user.Cedula,
+            Email = user.Email,
+            Telefono = user.Telefono,
+            Cargo = user.Cargo,
+            ProvinciaId = user.ProvinciaId,
+            Provincia = user.Provincia?.Nombre ?? string.Empty,
+            CantonId = user.CantonId,
+            Canton = user.Canton?.Nombre ?? string.Empty,
+            CentroZonalId = user.CentroZonalId,
+            CentroZonal = user.CentroZonal?.Nombre ?? string.Empty,
+            IsActive = user.IsActive,
+            CreatedAt = user.CreatedAt,
+            UpdatedAt = user.UpdatedAt,
+            LastLoginAt = user.LastLoginAt,
+            OrganizationalUnitId = user.OrganizationalUnitId,
+            Roles = user.UserRoles.Where(x => x.Role != null).Select(x => x.Role.Name).Distinct().ToList(),
+            Systems = user.UserSystemRoles.Where(x => x.SystemModule != null).Select(x => x.SystemModule.Code).Distinct().ToList()
+        };
     }
 }

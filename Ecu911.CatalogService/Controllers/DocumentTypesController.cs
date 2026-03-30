@@ -61,6 +61,19 @@ public class DocumentTypesController : ControllerBase
     }
 
     [Authorize(Roles = "ADMIN")]
+    [HttpPut("{id:guid}/activate")]
+    public async Task<IActionResult> Activate(Guid id)
+    {
+        var username = UserContextHelper.GetUsername(User);
+        var result = await _service.ActivateAsync(id, username);
+
+        if (result == null)
+            return NotFound(new { message = "Tipo de documento no encontrado." });
+
+        return Ok(result);
+    }
+
+    [Authorize(Roles = "ADMIN")]
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {

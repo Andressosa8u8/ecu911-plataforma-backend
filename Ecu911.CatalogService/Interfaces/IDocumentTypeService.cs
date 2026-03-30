@@ -9,4 +9,5 @@ public interface IDocumentTypeService
     Task<DocumentTypeDto> CreateAsync(CreateDocumentTypeDto input, string? username);
     Task<DocumentTypeDto?> UpdateAsync(Guid id, UpdateDocumentTypeDto input, string? username);
     Task<bool> DeleteAsync(Guid id, string? username);
+    Task<DocumentTypeDto?> ActivateAsync(Guid id, string? username);
 }

@@ -3,6 +3,7 @@ using Ecu911.AuthService.Interfaces;
 using Ecu911.AuthService.Repositories;
 using Ecu911.AuthService.Services;
 using Ecu911.AuthService.Validators;
+using Ecu911.AuthService.Seeders;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -111,5 +112,12 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+    dbContext.Database.Migrate();
+    await AuthDataSeeder.SeedAsync(dbContext);
+}
 
 app.Run();

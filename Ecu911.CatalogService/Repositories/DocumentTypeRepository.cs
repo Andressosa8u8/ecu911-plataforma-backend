@@ -17,7 +17,6 @@ public class DocumentTypeRepository : IDocumentTypeRepository
     public async Task<List<DocumentType>> GetAllAsync()
     {
         return await _context.DocumentTypes
-            .Where(x => x.IsActive)
             .OrderBy(x => x.Name)
             .ToListAsync();
     }
@@ -25,7 +24,24 @@ public class DocumentTypeRepository : IDocumentTypeRepository
     public async Task<DocumentType?> GetByIdAsync(Guid id)
     {
         return await _context.DocumentTypes
-            .FirstOrDefaultAsync(x => x.Id == id && x.IsActive);
+            .FirstOrDefaultAsync(x => x.Id == id);
+    }
+
+    public async Task<bool> ExistsAsync(Guid id)
+    {
+        return await _context.DocumentTypes.AnyAsync(x => x.Id == id);
+    }
+
+    public async Task<bool> NameExistsAsync(string name)
+    {
+        return await _context.DocumentTypes
+            .AnyAsync(x => x.IsActive && x.Name.ToLower() == name.ToLower());
+    }
+
+    public async Task<bool> NameExistsForOtherAsync(Guid excludeId, string name)
+    {
+        return await _context.DocumentTypes
+            .AnyAsync(x => x.IsActive && x.Id != excludeId && x.Name.ToLower() == name.ToLower());
     }
 
     public async Task<DocumentType> AddAsync(DocumentType entity)
@@ -35,27 +51,10 @@ public class DocumentTypeRepository : IDocumentTypeRepository
         return entity;
     }
 
-    public async Task<bool> ExistsAsync(Guid id)
-    {
-        return await _context.DocumentTypes.AnyAsync(x => x.Id == id && x.IsActive);
-    }
-
-    public async Task<bool> NameExistsAsync(string name)
-    {
-        return await _context.DocumentTypes
-            .AnyAsync(x => x.IsActive && x.Name.ToLower() == name.ToLower());
-    }
-
-    public async Task<bool> NameExistsAsync(string name, Guid excludeId)
-    {
-        return await _context.DocumentTypes
-            .AnyAsync(x => x.IsActive && x.Id != excludeId && x.Name.ToLower() == name.ToLower());
-    }
-
     public async Task<DocumentType?> UpdateAsync(Guid id, string name, string description)
     {
         var existing = await _context.DocumentTypes
-            .FirstOrDefaultAsync(x => x.Id == id && x.IsActive);
+            .FirstOrDefaultAsync(x => x.Id == id);
 
         if (existing == null)
             return null;
@@ -76,7 +75,19 @@ public class DocumentTypeRepository : IDocumentTypeRepository
             return false;
 
         existing.IsActive = false;
+        await _context.SaveChangesAsync();
+        return true;
+    }
 
+    public async Task<bool> ActivateAsync(Guid id)
+    {
+        var existing = await _context.DocumentTypes
+            .FirstOrDefaultAsync(x => x.Id == id && !x.IsActive);
+
+        if (existing == null)
+            return false;
+
+        existing.IsActive = true;
         await _context.SaveChangesAsync();
         return true;
     }

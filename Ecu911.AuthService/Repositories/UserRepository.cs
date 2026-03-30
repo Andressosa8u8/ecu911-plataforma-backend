@@ -1,4 +1,4 @@
-﻿using Ecu911.AuthService.Data;
+using Ecu911.AuthService.Data;
 using Ecu911.AuthService.Interfaces;
 using Ecu911.AuthService.Models;
 using Microsoft.EntityFrameworkCore;
@@ -14,37 +14,28 @@ public class UserRepository : IUserRepository
         _context = context;
     }
 
-    public async Task<User?> GetByUsernameAsync(string username)
-    {
-        return await _context.Users
-            .Include(x => x.UserRoles)
-                .ThenInclude(x => x.Role)
-            .Include(x => x.UserSystemRoles)
-                .ThenInclude(x => x.Role)
-            .Include(x => x.UserSystemRoles)
-                .ThenInclude(x => x.SystemModule)
-            .FirstOrDefaultAsync(x => x.Username == username);
-    }
+    private IQueryable<User> Query() => _context.Users
+        .Include(x => x.Provincia)
+        .Include(x => x.Canton)
+        .Include(x => x.CentroZonal)
+        .Include(x => x.UserRoles).ThenInclude(x => x.Role)
+        .Include(x => x.UserSystemRoles).ThenInclude(x => x.Role)
+        .Include(x => x.UserSystemRoles).ThenInclude(x => x.SystemModule);
 
-    public async Task<User?> GetByIdAsync(Guid id)
-    {
-        return await _context.Users
-            .Include(x => x.UserRoles)
-            .ThenInclude(x => x.Role)
-            .FirstOrDefaultAsync(x => x.Id == id);
-    }
+    public Task<User?> GetByUsernameAsync(string username) =>
+        Query().FirstOrDefaultAsync(x => x.Username == username);
 
-    public async Task<List<User>> GetAllAsync()
-    {
-        return await _context.Users
-            .Include(x => x.UserRoles)
-                .ThenInclude(x => x.Role)
-            .Include(x => x.UserSystemRoles)
-                .ThenInclude(x => x.Role)
-            .Include(x => x.UserSystemRoles)
-                .ThenInclude(x => x.SystemModule)
-            .ToListAsync();
-    }
+    public Task<User?> GetByEmailAsync(string email) =>
+        Query().FirstOrDefaultAsync(x => x.Email == email);
+
+    public Task<User?> GetByCedulaAsync(string cedula) =>
+        Query().FirstOrDefaultAsync(x => x.Cedula == cedula);
+
+    public Task<User?> GetByIdAsync(Guid id) =>
+        Query().FirstOrDefaultAsync(x => x.Id == id);
+
+    public Task<List<User>> GetAllAsync() =>
+        Query().ToListAsync();
 
     public async Task<User> AddAsync(User user)
     {
@@ -53,8 +44,5 @@ public class UserRepository : IUserRepository
         return user;
     }
 
-    public async Task SaveChangesAsync()
-    {
-        await _context.SaveChangesAsync();
-    }
+    public Task SaveChangesAsync() => _context.SaveChangesAsync();
 }

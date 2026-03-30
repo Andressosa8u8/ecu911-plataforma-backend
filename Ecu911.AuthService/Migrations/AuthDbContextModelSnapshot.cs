@@ -17,229 +17,624 @@ namespace Ecu911.AuthService.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.3")
+                .HasAnnotation("ProductVersion", "8.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pgcrypto");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("Ecu911.AuthService.Models.Canton", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer")
+                        .HasColumnName("id")
+                        .HasComment("Identificador numérico del cantón.");
+
+                    b.Property<string>("Codigo")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("codigo")
+                        .HasComment("Código corto del cantón.");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("es_activo")
+                        .HasComment("Indica si el cantón está activo para uso en el sistema.");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("nombre")
+                        .HasComment("Nombre oficial del cantón.");
+
+                    b.Property<int>("ProvinciaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("provincia_id")
+                        .HasComment("Provincia a la que pertenece el cantón.");
+
+                    b.HasKey("Id")
+                        .HasName("pk_cantones");
+
+                    b.HasIndex("ProvinciaId", "Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("ux_cantones_provincia_nombre");
+
+                    b.ToTable("cantones", null, t =>
+                        {
+                            t.HasComment("Catálogo institucional de cantones.");
+                        });
+                });
+
+            modelBuilder.Entity("Ecu911.AuthService.Models.CentroZonal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()")
+                        .HasComment("Identificador único del centro zonal.");
+
+                    b.Property<int>("Grupo")
+                        .HasColumnType("integer")
+                        .HasColumnName("grupo")
+                        .HasComment("Agrupación o clasificación institucional del centro zonal.");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("es_activo")
+                        .HasComment("Indica si el centro zonal está activo para uso en el sistema.");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("nombre")
+                        .HasComment("Nombre oficial del centro zonal.");
+
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("padre_id")
+                        .HasComment("Centro zonal padre en caso de estructura jerárquica.");
+
+                    b.Property<int>("ProvinciaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("provincia_id")
+                        .HasComment("Provincia a la que está asociado el centro zonal.");
+
+                    b.Property<string>("Sigla")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("sigla")
+                        .HasComment("Sigla institucional del centro zonal.");
+
+                    b.HasKey("Id")
+                        .HasName("pk_centros_zonales");
+
+                    b.HasIndex("Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("ux_centros_zonales_nombre");
+
+                    b.HasIndex("ParentId");
+
+                    b.HasIndex("ProvinciaId");
+
+                    b.ToTable("centros_zonales", null, t =>
+                        {
+                            t.HasComment("Catálogo institucional de centros zonales y dependencias.");
+                        });
+                });
 
             modelBuilder.Entity("Ecu911.AuthService.Models.Permission", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()")
+                        .HasComment("Identificador único del permiso.");
 
                     b.Property<string>("Code")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("codigo")
+                        .HasComment("Código técnico único del permiso.");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creado_en")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                        .HasComment("Fecha de creación del permiso.");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text");
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)")
+                        .HasColumnName("descripcion")
+                        .HasComment("Descripción funcional del permiso.");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("es_activo")
+                        .HasComment("Indica si el permiso está habilitado.");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("nombre")
+                        .HasComment("Nombre visible del permiso.");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_permisos");
 
                     b.HasIndex("Code")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ux_permisos_codigo");
 
                     b.HasIndex("Name")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ux_permisos_nombre");
 
-                    b.ToTable("Permissions");
+                    b.ToTable("permisos", null, t =>
+                        {
+                            t.HasComment("Permisos funcionales asignables a roles.");
+                        });
+                });
+
+            modelBuilder.Entity("Ecu911.AuthService.Models.Province", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer")
+                        .HasColumnName("id")
+                        .HasComment("Identificador numérico de la provincia.");
+
+                    b.Property<string>("Codigo")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("codigo")
+                        .HasComment("Código corto de la provincia.");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("es_activo")
+                        .HasComment("Indica si la provincia está activa para uso en el sistema.");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("nombre")
+                        .HasComment("Nombre oficial de la provincia.");
+
+                    b.HasKey("Id")
+                        .HasName("pk_provincias");
+
+                    b.HasIndex("Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("ux_provincias_nombre");
+
+                    b.ToTable("provincias", null, t =>
+                        {
+                            t.HasComment("Catálogo institucional de provincias.");
+                        });
                 });
 
             modelBuilder.Entity("Ecu911.AuthService.Models.Role", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()")
+                        .HasComment("Identificador único del rol.");
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)")
+                        .HasColumnName("descripcion")
+                        .HasComment("Descripción funcional del rol.");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("nombre")
+                        .HasComment("Nombre único del rol.");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_roles");
 
                     b.HasIndex("Name")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ux_roles_nombre");
 
-                    b.ToTable("Roles");
+                    b.ToTable("roles", null, t =>
+                        {
+                            t.HasComment("Roles globales de autorización.");
+                        });
                 });
 
             modelBuilder.Entity("Ecu911.AuthService.Models.RolePermission", b =>
                 {
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("rol_id")
+                        .HasComment("Rol asociado al permiso.");
 
                     b.Property<Guid>("PermissionId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("permiso_id")
+                        .HasComment("Permiso asignado al rol.");
 
-                    b.HasKey("RoleId", "PermissionId");
+                    b.HasKey("RoleId", "PermissionId")
+                        .HasName("pk_roles_permisos");
 
                     b.HasIndex("PermissionId");
 
-                    b.ToTable("RolePermissions");
+                    b.ToTable("roles_permisos", null, t =>
+                        {
+                            t.HasComment("Relación entre roles y permisos.");
+                        });
                 });
 
             modelBuilder.Entity("Ecu911.AuthService.Models.SystemModule", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()")
+                        .HasComment("Identificador único del módulo del sistema.");
 
                     b.Property<string>("Code")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("codigo")
+                        .HasComment("Código técnico único del módulo.");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creado_en")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                        .HasComment("Fecha de creación del módulo.");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text");
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)")
+                        .HasColumnName("descripcion")
+                        .HasComment("Descripción funcional del módulo.");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("es_activo")
+                        .HasComment("Indica si el módulo está habilitado.");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("nombre")
+                        .HasComment("Nombre visible del módulo del sistema.");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_modulos_sistema");
 
                     b.HasIndex("Code")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ux_modulos_sistema_codigo");
 
                     b.HasIndex("Name")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ux_modulos_sistema_nombre");
 
-                    b.ToTable("SystemModules");
+                    b.ToTable("modulos_sistema", null, t =>
+                        {
+                            t.HasComment("Sistemas o módulos disponibles para autenticación y autorización.");
+                        });
                 });
 
             modelBuilder.Entity("Ecu911.AuthService.Models.User", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()")
+                        .HasComment("Identificador único del usuario.");
+
+                    b.Property<string>("Apellidos")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("apellidos")
+                        .HasComment("Apellidos del usuario.");
+
+                    b.Property<int>("CantonId")
+                        .HasColumnType("integer")
+                        .HasColumnName("canton_id")
+                        .HasComment("Cantón asignado al usuario.");
+
+                    b.Property<string>("Cargo")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("cargo")
+                        .HasComment("Cargo institucional del usuario.");
+
+                    b.Property<string>("Cedula")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("cedula")
+                        .HasComment("Número de cédula o documento de identidad del usuario.");
+
+                    b.Property<Guid>("CentroZonalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("centro_zonal_id")
+                        .HasComment("Centro zonal asignado al usuario.");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creado_en")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                        .HasComment("Fecha de creación del usuario.");
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("correo_electronico")
+                        .HasComment("Correo electrónico institucional o de contacto.");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("es_activo")
+                        .HasComment("Indica si el usuario puede acceder al sistema.");
+
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ultimo_ingreso_en")
+                        .HasComment("Fecha del último inicio de sesión exitoso.");
+
+                    b.Property<string>("Nombres")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("nombres")
+                        .HasComment("Nombres del usuario.");
 
                     b.Property<Guid?>("OrganizationalUnitId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("unidad_organizacional_id")
+                        .HasComment("Unidad organizacional relacionada desde el servicio de catálogo.");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("hash_contrasena")
+                        .HasComment("Hash seguro de la contraseña del usuario.");
+
+                    b.Property<int>("ProvinciaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("provincia_id")
+                        .HasComment("Provincia asignada al usuario.");
+
+                    b.Property<string>("Telefono")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("telefono")
+                        .HasComment("Número telefónico del usuario.");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("actualizado_en")
+                        .HasComment("Fecha de última actualización del usuario.");
 
                     b.Property<string>("Username")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("nombre_usuario")
+                        .HasComment("Nombre de usuario utilizado para autenticación.");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_usuarios");
+
+                    b.HasIndex("CantonId")
+                        .HasDatabaseName("ix_usuarios_canton_id");
+
+                    b.HasIndex("Cedula")
+                        .IsUnique()
+                        .HasDatabaseName("ux_usuarios_cedula");
+
+                    b.HasIndex("CentroZonalId")
+                        .HasDatabaseName("ix_usuarios_centro_zonal_id");
 
                     b.HasIndex("Email")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ux_usuarios_correo_electronico");
+
+                    b.HasIndex("ProvinciaId")
+                        .HasDatabaseName("ix_usuarios_provincia_id");
 
                     b.HasIndex("Username")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("ux_usuarios_nombre_usuario");
 
-                    b.ToTable("Users");
+                    b.ToTable("usuarios", null, t =>
+                        {
+                            t.HasComment("Usuarios autenticables del sistema institucional.");
+                        });
                 });
 
             modelBuilder.Entity("Ecu911.AuthService.Models.UserRole", b =>
                 {
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id")
+                        .HasComment("Usuario asociado al rol global.");
 
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("rol_id")
+                        .HasComment("Rol global asignado al usuario.");
 
-                    b.HasKey("UserId", "RoleId");
+                    b.HasKey("UserId", "RoleId")
+                        .HasName("pk_usuarios_roles");
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("UserRoles");
+                    b.ToTable("usuarios_roles", null, t =>
+                        {
+                            t.HasComment("Relación entre usuarios y roles globales.");
+                        });
                 });
 
             modelBuilder.Entity("Ecu911.AuthService.Models.UserSystemRole", b =>
                 {
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id")
+                        .HasComment("Usuario asociado a un rol por sistema.");
 
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("rol_id")
+                        .HasComment("Rol asignado en el sistema.");
 
                     b.Property<Guid>("SystemModuleId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("modulo_sistema_id")
+                        .HasComment("Sistema al que aplica el rol.");
 
-                    b.HasKey("UserId", "RoleId", "SystemModuleId");
+                    b.HasKey("UserId", "RoleId", "SystemModuleId")
+                        .HasName("pk_usuarios_roles_sistema");
 
                     b.HasIndex("RoleId");
 
                     b.HasIndex("SystemModuleId");
 
-                    b.ToTable("UserSystemRoles");
+                    b.ToTable("usuarios_roles_sistema", null, t =>
+                        {
+                            t.HasComment("Relación entre usuario, rol y módulo del sistema.");
+                        });
                 });
 
             modelBuilder.Entity("Ecu911.AuthService.Models.UserSystemScope", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()")
+                        .HasComment("Identificador único del alcance de usuario por sistema.");
 
                     b.Property<string>("CenterCode")
-                        .HasColumnType("text");
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("codigo_centro")
+                        .HasComment("Código del centro al que aplica el alcance.");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("creado_en")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                        .HasComment("Fecha de creación del alcance.");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("es_activo")
+                        .HasComment("Indica si el alcance está activo.");
 
                     b.Property<string>("JurisdictionCode")
-                        .HasColumnType("text");
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("codigo_jurisdiccion")
+                        .HasComment("Código de jurisdicción al que aplica el alcance.");
 
                     b.Property<string>("ScopeLevel")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("nivel_alcance")
+                        .HasComment("Nivel de alcance del usuario para el sistema.");
 
                     b.Property<Guid>("SystemModuleId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("modulo_sistema_id")
+                        .HasComment("Sistema al que aplica el alcance.");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id")
+                        .HasComment("Usuario al que corresponde el alcance.");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_usuarios_alcances_sistema");
 
                     b.HasIndex("SystemModuleId");
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("UserSystemScopes");
+                    b.ToTable("usuarios_alcances_sistema", null, t =>
+                        {
+                            t.HasComment("Alcances de operación de un usuario por sistema.");
+                        });
+                });
+
+            modelBuilder.Entity("Ecu911.AuthService.Models.Canton", b =>
+                {
+                    b.HasOne("Ecu911.AuthService.Models.Province", "Provincia")
+                        .WithMany("Cantones")
+                        .HasForeignKey("ProvinciaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_cantones_provincias_provincia_id");
+
+                    b.Navigation("Provincia");
+                });
+
+            modelBuilder.Entity("Ecu911.AuthService.Models.CentroZonal", b =>
+                {
+                    b.HasOne("Ecu911.AuthService.Models.CentroZonal", "Parent")
+                        .WithMany("Children")
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_centros_zonales_centros_zonales_padre_id");
+
+                    b.HasOne("Ecu911.AuthService.Models.Province", "Provincia")
+                        .WithMany("CentrosZonales")
+                        .HasForeignKey("ProvinciaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_centros_zonales_provincias_provincia_id");
+
+                    b.Navigation("Parent");
+
+                    b.Navigation("Provincia");
                 });
 
             modelBuilder.Entity("Ecu911.AuthService.Models.RolePermission", b =>
@@ -248,17 +643,49 @@ namespace Ecu911.AuthService.Migrations
                         .WithMany("RolePermissions")
                         .HasForeignKey("PermissionId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_roles_permisos_permisos_permiso_id");
 
                     b.HasOne("Ecu911.AuthService.Models.Role", "Role")
                         .WithMany("RolePermissions")
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_roles_permisos_roles_rol_id");
 
                     b.Navigation("Permission");
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("Ecu911.AuthService.Models.User", b =>
+                {
+                    b.HasOne("Ecu911.AuthService.Models.Canton", "Canton")
+                        .WithMany("Users")
+                        .HasForeignKey("CantonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_usuarios_cantones_canton_id");
+
+                    b.HasOne("Ecu911.AuthService.Models.CentroZonal", "CentroZonal")
+                        .WithMany("Users")
+                        .HasForeignKey("CentroZonalId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_usuarios_centros_zonales_centro_zonal_id");
+
+                    b.HasOne("Ecu911.AuthService.Models.Province", "Provincia")
+                        .WithMany("Users")
+                        .HasForeignKey("ProvinciaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_usuarios_provincias_provincia_id");
+
+                    b.Navigation("Canton");
+
+                    b.Navigation("CentroZonal");
+
+                    b.Navigation("Provincia");
                 });
 
             modelBuilder.Entity("Ecu911.AuthService.Models.UserRole", b =>
@@ -267,13 +694,15 @@ namespace Ecu911.AuthService.Migrations
                         .WithMany("UserRoles")
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_usuarios_roles_roles_rol_id");
 
                     b.HasOne("Ecu911.AuthService.Models.User", "User")
                         .WithMany("UserRoles")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_usuarios_roles_usuarios_usuario_id");
 
                     b.Navigation("Role");
 
@@ -286,19 +715,22 @@ namespace Ecu911.AuthService.Migrations
                         .WithMany("UserSystemRoles")
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_usuarios_roles_sistema_roles_rol_id");
 
                     b.HasOne("Ecu911.AuthService.Models.SystemModule", "SystemModule")
                         .WithMany("UserSystemRoles")
                         .HasForeignKey("SystemModuleId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_usuarios_roles_sistema_modulos_modulo_sistema_id");
 
                     b.HasOne("Ecu911.AuthService.Models.User", "User")
                         .WithMany("UserSystemRoles")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_usuarios_roles_sistema_usuarios_usuario_id");
 
                     b.Navigation("Role");
 
@@ -313,22 +745,45 @@ namespace Ecu911.AuthService.Migrations
                         .WithMany("UserSystemScopes")
                         .HasForeignKey("SystemModuleId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_usuarios_alcances_sistema_modulos_modulo_sistema_id");
 
                     b.HasOne("Ecu911.AuthService.Models.User", "User")
                         .WithMany("UserSystemScopes")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("fk_usuarios_alcances_sistema_usuarios_usuario_id");
 
                     b.Navigation("SystemModule");
 
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Ecu911.AuthService.Models.Canton", b =>
+                {
+                    b.Navigation("Users");
+                });
+
+            modelBuilder.Entity("Ecu911.AuthService.Models.CentroZonal", b =>
+                {
+                    b.Navigation("Children");
+
+                    b.Navigation("Users");
+                });
+
             modelBuilder.Entity("Ecu911.AuthService.Models.Permission", b =>
                 {
                     b.Navigation("RolePermissions");
+                });
+
+            modelBuilder.Entity("Ecu911.AuthService.Models.Province", b =>
+                {
+                    b.Navigation("Cantones");
+
+                    b.Navigation("CentrosZonales");
+
+                    b.Navigation("Users");
                 });
 
             modelBuilder.Entity("Ecu911.AuthService.Models.Role", b =>

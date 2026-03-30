@@ -7,16 +7,13 @@ namespace Ecu911.CatalogService.Services;
 public class DocumentTypeService : IDocumentTypeService
 {
     private readonly IDocumentTypeRepository _repository;
-    private readonly IDocumentItemRepository _documentItemRepository;
     private readonly AuditService _auditService;
 
     public DocumentTypeService(
         IDocumentTypeRepository repository,
-        IDocumentItemRepository documentItemRepository,
         AuditService auditService)
     {
         _repository = repository;
-        _documentItemRepository = documentItemRepository;
         _auditService = auditService;
     }
 
@@ -37,9 +34,7 @@ public class DocumentTypeService : IDocumentTypeService
     public async Task<DocumentTypeDto?> GetByIdAsync(Guid id)
     {
         var item = await _repository.GetByIdAsync(id);
-
-        if (item == null)
-            return null;
+        if (item == null) return null;
 
         return new DocumentTypeDto
         {
@@ -53,23 +48,21 @@ public class DocumentTypeService : IDocumentTypeService
 
     public async Task<DocumentTypeDto> CreateAsync(CreateDocumentTypeDto input, string? username)
     {
-        var duplicateName = await _repository.NameExistsAsync(input.Name);
-
-        if (duplicateName)
-        {
-            throw new ArgumentException("Ya existe un tipo de documento activo con ese nombre.");
-        }
+        if (await _repository.NameExistsAsync(input.Name))
+            throw new Exception("Ya existe un tipo documental activo con ese nombre.");
 
         var entity = new DocumentType
         {
+            Id = Guid.NewGuid(),
             Name = input.Name,
-            Description = input.Description,
+            Description = input.Description ?? string.Empty,
+            CreatedAt = DateTime.UtcNow,
             IsActive = true
         };
 
         var created = await _repository.AddAsync(entity);
 
-        _auditService.LogAction("Create", username ?? "Unknown", $"Created DocumentType with name: {input.Name}");
+        _auditService.LogAction("Create", username ?? "Unknown", $"Created DocumentType: {created.Name}");
 
         return new DocumentTypeDto
         {
@@ -84,61 +77,69 @@ public class DocumentTypeService : IDocumentTypeService
     public async Task<DocumentTypeDto?> UpdateAsync(Guid id, UpdateDocumentTypeDto input, string? username)
     {
         var exists = await _repository.ExistsAsync(id);
+        if (!exists) return null;
 
-        if (!exists)
+        if (await _repository.NameExistsForOtherAsync(id, input.Name))
+            throw new Exception("Ya existe otro tipo documental activo con ese nombre.");
+
+        var updated = await _repository.UpdateAsync(id, input.Name, input.Description ?? string.Empty);
+        if (updated == null) return null;
+
+        _auditService.LogAction("Update", username ?? "Unknown", $"Updated DocumentType: {updated.Name}");
+
+        return new DocumentTypeDto
         {
-            throw new ArgumentException("El tipo de documento no existe o está inactivo.");
-        }
-
-        var duplicateName = await _repository.NameExistsAsync(input.Name, id);
-
-        if (duplicateName)
-        {
-            throw new ArgumentException("Ya existe un tipo de documento activo con ese nombre.");
-        }
-
-        var updated = await _repository.UpdateAsync(id, input.Name, input.Description);
-
-        if (updated != null)
-        {
-            _auditService.LogAction("Update", username ?? "Unknown", $"Updated DocumentType with ID: {id}");
-        }
-
-        return updated == null
-            ? null
-            : new DocumentTypeDto
-            {
-                Id = updated.Id,
-                Name = updated.Name,
-                Description = updated.Description,
-                IsActive = updated.IsActive,
-                CreatedAt = updated.CreatedAt
-            };
+            Id = updated.Id,
+            Name = updated.Name,
+            Description = updated.Description,
+            IsActive = updated.IsActive,
+            CreatedAt = updated.CreatedAt
+        };
     }
 
     public async Task<bool> DeleteAsync(Guid id, string? username)
     {
-        var exists = await _repository.ExistsAsync(id);
-
-        if (!exists)
-        {
-            throw new ArgumentException("El tipo de documento no existe o está inactivo.");
-        }
-
-        var isInUse = await _documentItemRepository.ExistsActiveByDocumentTypeIdAsync(id);
-
-        if (isInUse)
-        {
-            throw new ArgumentException("No se puede desactivar el tipo de documento porque está siendo usado por documentos activos.");
-        }
-
         var deleted = await _repository.DeactivateAsync(id);
 
         if (deleted)
-        {
             _auditService.LogAction("Delete", username ?? "Unknown", $"Deactivated DocumentType with ID: {id}");
-        }
 
         return deleted;
+    }
+
+    public async Task<DocumentTypeDto?> ActivateAsync(Guid id, string? username)
+    {
+        var exists = await _repository.ExistsAsync(id);
+        if (!exists) return null;
+
+        var activated = await _repository.ActivateAsync(id);
+        if (!activated)
+        {
+            var current = await _repository.GetByIdAsync(id);
+            if (current == null) return null;
+
+            return new DocumentTypeDto
+            {
+                Id = current.Id,
+                Name = current.Name,
+                Description = current.Description,
+                IsActive = current.IsActive,
+                CreatedAt = current.CreatedAt
+            };
+        }
+
+        var item = await _repository.GetByIdAsync(id);
+        if (item == null) return null;
+
+        _auditService.LogAction("Activate", username ?? "Unknown", $"Activated DocumentType with ID: {id}");
+
+        return new DocumentTypeDto
+        {
+            Id = item.Id,
+            Name = item.Name,
+            Description = item.Description,
+            IsActive = item.IsActive,
+            CreatedAt = item.CreatedAt
+        };
     }
 }
