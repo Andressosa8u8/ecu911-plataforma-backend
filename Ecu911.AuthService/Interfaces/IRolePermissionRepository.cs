@@ -7,4 +7,6 @@ public interface IRolePermissionRepository
     Task<bool> ExistsAsync(Guid roleId, Guid permissionId);
     Task AddAsync(RolePermission entity);
     Task<List<RolePermission>> GetByRoleIdAsync(Guid roleId);
+    Task<RolePermission?> GetAsync(Guid roleId, Guid permissionId);
+    Task RemoveAsync(RolePermission entity);
 }

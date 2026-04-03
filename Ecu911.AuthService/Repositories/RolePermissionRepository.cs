@@ -34,4 +34,19 @@ public class RolePermissionRepository : IRolePermissionRepository
             .Where(x => x.RoleId == roleId)
             .ToListAsync();
     }
+
+    public async Task<RolePermission?> GetAsync(Guid roleId, Guid permissionId)
+    {
+        return await _context.RolePermissions
+            .Include(x => x.Permission)
+            .FirstOrDefaultAsync(x =>
+                x.RoleId == roleId &&
+                x.PermissionId == permissionId);
+    }
+
+    public async Task RemoveAsync(RolePermission entity)
+    {
+        _context.RolePermissions.Remove(entity);
+        await _context.SaveChangesAsync();
+    }
 }

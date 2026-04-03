@@ -15,7 +15,7 @@ public static class AuthDataSeeder
     {
         const string username = "admin.ecu911";
         const string roleName = "ADMIN";
-        const string moduleCode = "REPOSITORIO_DIGITAL";
+        const string moduleCode = "ADMINISTRADOR";
         const string centroSigla = "UIO";
 
         var existingUser = await dbContext.Users
@@ -34,7 +34,7 @@ public static class AuthDataSeeder
             .FirstOrDefaultAsync(x => x.Code == moduleCode);
 
         if (repositorioModule == null)
-            throw new Exception("No existe el módulo REPOSITORIO_DIGITAL. Debes ejecutar primero el seed de módulos.");
+            throw new Exception("No existe el módulo ADMINISTRADOR. Debes ejecutar primero el seed de módulos.");
 
         var provincia = await dbContext.Provinces
             .FirstOrDefaultAsync(x => x.Id == 17);

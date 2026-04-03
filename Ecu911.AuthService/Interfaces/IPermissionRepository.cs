@@ -8,4 +8,5 @@ public interface IPermissionRepository
     Task<Permission?> GetByCodeAsync(string code);
     Task<List<Permission>> GetAllAsync();
     Task<Permission> AddAsync(Permission entity);
+    Task UpdateAsync(Permission entity);
 }

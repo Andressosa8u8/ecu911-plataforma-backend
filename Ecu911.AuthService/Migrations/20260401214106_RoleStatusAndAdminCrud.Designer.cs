@@ -3,6 +3,7 @@ using System;
 using Ecu911.AuthService.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Ecu911.AuthService.Migrations
 {
     [DbContext(typeof(AuthDbContext))]
-    partial class AuthDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260401214106_RoleStatusAndAdminCrud")]
+    partial class RoleStatusAndAdminCrud
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -227,6 +230,51 @@ namespace Ecu911.AuthService.Migrations
                     b.ToTable("provincias", null, t =>
                         {
                             t.HasComment("Catálogo institucional de provincias.");
+                        });
+                });
+
+            modelBuilder.Entity("Ecu911.AuthService.Models.Role", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()")
+                        .HasComment("Identificador único del rol.");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)")
+                        .HasColumnName("descripcion")
+                        .HasComment("Descripción funcional del rol.");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("nombre")
+                        .HasComment("Nombre único del rol.");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id")
+                        .HasName("pk_roles");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("ux_roles_nombre");
+
+                    b.ToTable("roles", null, t =>
+                        {
+                            t.HasComment("Roles globales de autorización.");
                         });
                 });
 
@@ -569,55 +617,6 @@ namespace Ecu911.AuthService.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Role", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id")
-                        .HasDefaultValueSql("gen_random_uuid()")
-                        .HasComment("Identificador único del rol.");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("character varying(250)")
-                        .HasColumnName("descripcion")
-                        .HasComment("Descripción funcional del rol.");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("nombre")
-                        .HasComment("Nombre único del rol.");
-
-                    b.Property<string>("RoleType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id")
-                        .HasName("pk_roles");
-
-                    b.HasIndex("Name")
-                        .IsUnique()
-                        .HasDatabaseName("ux_roles_nombre");
-
-                    b.ToTable("roles", null, t =>
-                        {
-                            t.HasComment("Roles globales de autorización.");
-                        });
-                });
-
             modelBuilder.Entity("Ecu911.AuthService.Models.Canton", b =>
                 {
                     b.HasOne("Ecu911.AuthService.Models.Province", "Provincia")
@@ -659,7 +658,7 @@ namespace Ecu911.AuthService.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_roles_permisos_permisos_permiso_id");
 
-                    b.HasOne("Role", "Role")
+                    b.HasOne("Ecu911.AuthService.Models.Role", "Role")
                         .WithMany("RolePermissions")
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -703,7 +702,7 @@ namespace Ecu911.AuthService.Migrations
 
             modelBuilder.Entity("Ecu911.AuthService.Models.UserRole", b =>
                 {
-                    b.HasOne("Role", "Role")
+                    b.HasOne("Ecu911.AuthService.Models.Role", "Role")
                         .WithMany("UserRoles")
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -724,7 +723,7 @@ namespace Ecu911.AuthService.Migrations
 
             modelBuilder.Entity("Ecu911.AuthService.Models.UserSystemRole", b =>
                 {
-                    b.HasOne("Role", "Role")
+                    b.HasOne("Ecu911.AuthService.Models.Role", "Role")
                         .WithMany("UserSystemRoles")
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -799,6 +798,15 @@ namespace Ecu911.AuthService.Migrations
                     b.Navigation("Users");
                 });
 
+            modelBuilder.Entity("Ecu911.AuthService.Models.Role", b =>
+                {
+                    b.Navigation("RolePermissions");
+
+                    b.Navigation("UserRoles");
+
+                    b.Navigation("UserSystemRoles");
+                });
+
             modelBuilder.Entity("Ecu911.AuthService.Models.SystemModule", b =>
                 {
                     b.Navigation("UserSystemRoles");
@@ -813,15 +821,6 @@ namespace Ecu911.AuthService.Migrations
                     b.Navigation("UserSystemRoles");
 
                     b.Navigation("UserSystemScopes");
-                });
-
-            modelBuilder.Entity("Role", b =>
-                {
-                    b.Navigation("RolePermissions");
-
-                    b.Navigation("UserRoles");
-
-                    b.Navigation("UserSystemRoles");
                 });
 #pragma warning restore 612, 618
         }

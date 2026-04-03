@@ -44,4 +44,29 @@ public class AuthorizationAdminController : ControllerBase
         await _authService.AssignUserSystemScopeAsync(input);
         return Ok(new { message = "Alcance asignado al usuario para el sistema correctamente." });
     }
+
+    [HttpPut("permissions/{permissionId:guid}")]
+    public async Task<IActionResult> UpdatePermission(Guid permissionId, [FromBody] UpdatePermissionDto input)
+    {
+        var result = await _authService.UpdatePermissionAsync(permissionId, input);
+
+        if (result == null)
+            return NotFound("Permiso no encontrado.");
+
+        return Ok(result);
+    }
+
+    [HttpGet("roles/{roleId:guid}/permissions")]
+    public async Task<IActionResult> GetRolePermissions(Guid roleId)
+    {
+        var result = await _authService.GetRolePermissionsAsync(roleId);
+        return Ok(result);
+    }
+
+    [HttpDelete("roles/{roleId:guid}/permissions/{permissionId:guid}")]
+    public async Task<IActionResult> RemoveRolePermission(Guid roleId, Guid permissionId)
+    {
+        await _authService.RemoveRolePermissionAsync(roleId, permissionId);
+        return Ok(new { message = "Permiso removido del rol correctamente." });
+    }
 }

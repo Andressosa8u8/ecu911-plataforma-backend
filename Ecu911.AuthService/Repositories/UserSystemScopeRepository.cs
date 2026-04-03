@@ -20,6 +20,26 @@ public class UserSystemScopeRepository : IUserSystemScopeRepository
             .FirstOrDefaultAsync(x => x.UserId == userId && x.SystemModuleId == systemModuleId);
     }
 
+    public async Task<UserSystemScope?> GetExactAsync(Guid userId, Guid systemModuleId, string scopeLevel, string? centerCode, string? jurisdictionCode)
+    {
+        return await _context.UserSystemScopes.FirstOrDefaultAsync(x =>
+            x.UserId == userId &&
+            x.SystemModuleId == systemModuleId &&
+            x.ScopeLevel == scopeLevel &&
+            x.CenterCode == centerCode &&
+            x.JurisdictionCode == jurisdictionCode);
+    }
+
+    public async Task<List<UserSystemScope>> GetByUserIdAsync(Guid userId)
+    {
+        return await _context.UserSystemScopes
+            .Include(x => x.SystemModule)
+            .Where(x => x.UserId == userId)
+            .OrderBy(x => x.SystemModule.Name)
+            .ThenBy(x => x.ScopeLevel)
+            .ToListAsync();
+    }
+
     public async Task AddAsync(UserSystemScope entity)
     {
         _context.UserSystemScopes.Add(entity);
@@ -29,6 +49,12 @@ public class UserSystemScopeRepository : IUserSystemScopeRepository
     public async Task UpdateAsync(UserSystemScope entity)
     {
         _context.UserSystemScopes.Update(entity);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task RemoveAsync(UserSystemScope entity)
+    {
+        _context.UserSystemScopes.Remove(entity);
         await _context.SaveChangesAsync();
     }
 }

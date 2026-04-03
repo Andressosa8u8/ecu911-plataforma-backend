@@ -71,6 +71,18 @@ public class AuthController : ControllerBase
     }
 
     [Authorize(Roles = "ADMIN")]
+    [HttpGet("users/{userId:guid}/access-profile")]
+    public async Task<IActionResult> GetUserAccessProfile(Guid userId)
+    {
+        var result = await _authService.GetUserAccessProfileAsync(userId);
+
+        if (result == null)
+            return NotFound("Usuario no encontrado.");
+
+        return Ok(result);
+    }
+
+    [Authorize(Roles = "ADMIN")]
     [HttpGet("roles")]
     public async Task<IActionResult> GetRoles()
     {
@@ -107,10 +119,50 @@ public class AuthController : ControllerBase
     }
 
     [Authorize(Roles = "ADMIN")]
+    [HttpPut("roles/{roleId:guid}")]
+    public async Task<IActionResult> UpdateRole(Guid roleId, [FromBody] UpdateRoleDto input)
+    {
+        var result = await _authService.UpdateRoleAsync(roleId, input);
+
+        if (result == null)
+            return NotFound("Rol no encontrado.");
+
+        return Ok(result);
+    }
+
+    [Authorize(Roles = "ADMIN")]
+    [HttpPatch("roles/{roleId:guid}/status")]
+    public async Task<IActionResult> ChangeRoleStatus(Guid roleId, [FromBody] ChangeRoleStatusDto input)
+    {
+        var result = await _authService.ChangeRoleStatusAsync(roleId, input.IsActive);
+
+        if (result == null)
+            return NotFound("Rol no encontrado.");
+
+        return Ok(result);
+    }
+
+    [Authorize(Roles = "ADMIN")]
     [HttpPost("users/{userId:guid}/roles")]
     public async Task<IActionResult> AssignRole(Guid userId, [FromBody] AssignRoleDto input)
     {
         await _authService.AssignRoleAsync(userId, input.RoleId);
         return Ok();
+    }
+
+    [Authorize(Roles = "ADMIN")]
+    [HttpPost("assign-system-scope")]
+    public async Task<IActionResult> AssignSystemScope([FromBody] AssignUserSystemScopeDto input)
+    {
+        await _authService.AssignUserSystemScopeAsync(input);
+        return Ok(new { message = "Alcance asignado correctamente." });
+    }
+
+    [Authorize(Roles = "ADMIN")]
+    [HttpDelete("users/{userId:guid}/roles/{roleId:guid}")]
+    public async Task<IActionResult> RemoveRole(Guid userId, Guid roleId)
+    {
+        await _authService.RemoveRoleAsync(userId, roleId);
+        return Ok(new { message = "Rol global removido correctamente." });
     }
 }

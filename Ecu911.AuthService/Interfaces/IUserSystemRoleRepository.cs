@@ -7,4 +7,6 @@ public interface IUserSystemRoleRepository
     Task<bool> ExistsAsync(Guid userId, Guid roleId, Guid systemModuleId);
     Task AddAsync(UserSystemRole entity);
     Task<List<UserSystemRole>> GetByUserIdAsync(Guid userId);
+    Task<UserSystemRole?> GetAsync(Guid userId, Guid roleId, Guid systemModuleId);
+    Task RemoveAsync(UserSystemRole entity);
 }

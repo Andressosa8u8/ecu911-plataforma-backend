@@ -36,4 +36,18 @@ public class UserSystemRoleRepository : IUserSystemRoleRepository
             .Where(x => x.UserId == userId)
             .ToListAsync();
     }
+
+    public async Task<UserSystemRole?> GetAsync(Guid userId, Guid roleId, Guid systemModuleId)
+    {
+        return await _context.UserSystemRoles.FirstOrDefaultAsync(x =>
+            x.UserId == userId &&
+            x.RoleId == roleId &&
+            x.SystemModuleId == systemModuleId);
+    }
+
+    public async Task RemoveAsync(UserSystemRole entity)
+    {
+        _context.UserSystemRoles.Remove(entity);
+        await _context.SaveChangesAsync();
+    }
 }

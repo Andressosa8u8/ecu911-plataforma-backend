@@ -37,4 +37,10 @@ public class PermissionRepository : IPermissionRepository
         await _context.SaveChangesAsync();
         return entity;
     }
+
+    public async Task UpdateAsync(Permission entity)
+    {
+        _context.Permissions.Update(entity);
+        await _context.SaveChangesAsync();
+    }
 }

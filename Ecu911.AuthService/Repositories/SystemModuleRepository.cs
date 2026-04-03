@@ -21,8 +21,7 @@ public class SystemModuleRepository : ISystemModuleRepository
 
     public async Task<SystemModule?> GetByCodeAsync(string code)
     {
-        return await _context.SystemModules
-            .FirstOrDefaultAsync(x => x.Code == code);
+        return await _context.SystemModules.FirstOrDefaultAsync(x => x.Code == code);
     }
 
     public async Task<List<SystemModule>> GetAllAsync()
@@ -35,6 +34,13 @@ public class SystemModuleRepository : ISystemModuleRepository
     public async Task<SystemModule> AddAsync(SystemModule entity)
     {
         _context.SystemModules.Add(entity);
+        await _context.SaveChangesAsync();
+        return entity;
+    }
+
+    public async Task<SystemModule> UpdateAsync(SystemModule entity)
+    {
+        _context.SystemModules.Update(entity);
         await _context.SaveChangesAsync();
         return entity;
     }

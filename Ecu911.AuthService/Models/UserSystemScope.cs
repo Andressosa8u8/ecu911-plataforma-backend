@@ -10,7 +10,7 @@ public class UserSystemScope
     public Guid SystemModuleId { get; set; }
     public SystemModule SystemModule { get; set; } = default!;
 
-    public string ScopeLevel { get; set; } = "LOCAL";
+    public string ScopeLevel { get; set; } = default!;
     public string? CenterCode { get; set; }
     public string? JurisdictionCode { get; set; }
 

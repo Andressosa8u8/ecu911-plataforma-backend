@@ -8,4 +8,5 @@ public interface ISystemModuleRepository
     Task<SystemModule?> GetByCodeAsync(string code);
     Task<List<SystemModule>> GetAllAsync();
     Task<SystemModule> AddAsync(SystemModule entity);
+    Task<SystemModule> UpdateAsync(SystemModule entity);
 }

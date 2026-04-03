@@ -31,10 +31,46 @@ public class SystemModulesController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPut("{systemModuleId:guid}")]
+    public async Task<IActionResult> Update(Guid systemModuleId, [FromBody] UpdateSystemModuleDto input)
+    {
+        var result = await _authService.UpdateSystemModuleAsync(systemModuleId, input);
+
+        if (result == null)
+            return NotFound("Sistema no encontrado.");
+
+        return Ok(result);
+    }
+
+    [HttpPatch("{systemModuleId:guid}/status")]
+    public async Task<IActionResult> ChangeStatus(Guid systemModuleId, [FromBody] ChangeSystemModuleStatusDto input)
+    {
+        var result = await _authService.ChangeSystemModuleStatusAsync(systemModuleId, input.IsActive);
+
+        if (result == null)
+            return NotFound("Sistema no encontrado.");
+
+        return Ok(result);
+    }
+
     [HttpPost("assign-user-role")]
     public async Task<IActionResult> AssignUserRole([FromBody] AssignUserSystemRoleDto input)
     {
         await _authService.AssignUserSystemRoleAsync(input);
         return Ok(new { message = "Rol asignado al usuario para el sistema correctamente." });
+    }
+
+    [HttpPost("remove-user-role")]
+    public async Task<IActionResult> RemoveUserRoleFromSystem([FromBody] RemoveUserSystemRoleDto input)
+    {
+        await _authService.RemoveUserSystemRoleAsync(input);
+        return Ok(new { message = "Rol removido del usuario en el sistema correctamente." });
+    }
+
+    [HttpPost("remove-user-scope")]
+    public async Task<IActionResult> RemoveUserScopeFromSystem([FromBody] RemoveUserSystemScopeDto input)
+    {
+        await _authService.RemoveUserSystemScopeAsync(input);
+        return Ok(new { message = "Alcance removido del usuario en el sistema correctamente." });
     }
 }
