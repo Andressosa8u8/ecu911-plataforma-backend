@@ -165,4 +165,20 @@ public class AuthController : ControllerBase
         await _authService.RemoveRoleAsync(userId, roleId);
         return Ok(new { message = "Rol global removido correctamente." });
     }
+
+    [HttpGet("me/access-context")]
+    public async Task<IActionResult> GetAccessContext()
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                         ?? User.FindFirstValue(ClaimTypes.Name)
+                         ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized("No se pudo identificar al usuario autenticado.");
+
+        var currentSystemCode = User.FindFirstValue("system_code");
+        var context = await _authService.GetAccessContextAsync(userId, currentSystemCode);
+
+        return Ok(context);
+    }
 }

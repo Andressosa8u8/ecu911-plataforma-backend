@@ -37,4 +37,5 @@ public interface IAuthService
 
     Task AssignUserSystemScopeAsync(AssignUserSystemScopeDto input);
     Task RemoveUserSystemScopeAsync(RemoveUserSystemScopeDto input);
+    Task<AccessContextDto> GetAccessContextAsync(Guid userId, string? currentSystemCode);
 }

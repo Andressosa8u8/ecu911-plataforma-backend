@@ -937,6 +937,107 @@ public class AuthService : IAuthService
         };
     }
 
+    public async Task<AccessContextDto> GetAccessContextAsync(Guid userId, string? currentSystemCode)
+    {
+        var normalizedSystemCode = string.IsNullOrWhiteSpace(currentSystemCode)
+            ? null
+            : currentSystemCode.Trim().ToUpperInvariant();
+
+        var user = await _context.Users
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .Include(u => u.UserSystemRoles)
+                .ThenInclude(usr => usr.Role)
+            .Include(u => u.UserSystemRoles)
+                .ThenInclude(usr => usr.SystemModule)
+            .Include(u => u.UserSystemScopes)
+                .ThenInclude(uss => uss.SystemModule)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null || !user.IsActive)
+            throw new Exception("Usuario no encontrado o inactivo.");
+
+        var globalRoles = user.UserRoles
+            .Where(x => x.Role != null && x.Role.IsActive)
+            .Select(x => x.Role)
+            .DistinctBy(x => x.Id)
+            .ToList();
+
+        var systemRoles = user.UserSystemRoles
+            .Where(x =>
+                x.Role != null &&
+                x.Role.IsActive &&
+                x.SystemModule != null &&
+                x.SystemModule.IsActive &&
+                (normalizedSystemCode == null || x.SystemModule.Code == normalizedSystemCode))
+            .Select(x => x.Role)
+            .DistinctBy(x => x.Id)
+            .ToList();
+
+        var effectiveRoles = globalRoles
+            .Concat(systemRoles)
+            .DistinctBy(x => x.Id)
+            .ToList();
+
+        var isGlobalAdmin = globalRoles.Any(r => string.Equals(r.RoleType, "GLOBAL", StringComparison.OrdinalIgnoreCase))
+            || globalRoles.Any(r => string.Equals(r.Name, "ADMIN", StringComparison.OrdinalIgnoreCase));
+
+        var roleIds = effectiveRoles.Select(r => r.Id).ToList();
+
+        var permissions = roleIds.Count == 0
+            ? new List<string>()
+            : await _context.Set<RolePermission>()
+                .Include(rp => rp.Permission)
+                .Where(rp => roleIds.Contains(rp.RoleId) && rp.Permission != null && rp.Permission.IsActive)
+                .Select(rp => rp.Permission.Code)
+                .Distinct()
+                .OrderBy(x => x)
+                .ToListAsync();
+
+        var scopes = user.UserSystemScopes
+            .Where(x =>
+                x.IsActive &&
+                x.SystemModule != null &&
+                x.SystemModule.IsActive &&
+                (normalizedSystemCode == null || x.SystemModule.Code == normalizedSystemCode))
+            .Select(x => new AccessContextScopeDto
+            {
+                ScopeLevel = x.ScopeLevel,
+                CenterCode = x.CenterCode,
+                JurisdictionCode = x.JurisdictionCode,
+                IsActive = x.IsActive
+            })
+            .ToList();
+
+        var currentSystem = user.UserSystemRoles
+            .Where(x => x.SystemModule != null && (normalizedSystemCode == null || x.SystemModule.Code == normalizedSystemCode))
+            .Select(x => x.SystemModule)
+            .FirstOrDefault();
+
+        return new AccessContextDto
+        {
+            UserId = user.Id,
+            Username = user.Username,
+            FullName = BuildFullName(user.Nombres, user.Apellidos),
+            IsGlobalAdmin = isGlobalAdmin,
+            CurrentSystemCode = currentSystem?.Code ?? normalizedSystemCode,
+            CurrentSystemName = currentSystem?.Name,
+            Roles = effectiveRoles
+                .Select(r => new AccessContextRoleDto
+                {
+                    RoleId = r.Id,
+                    Name = r.Name,
+                    RoleType = r.RoleType,
+                    IsActive = r.IsActive
+                })
+                .OrderBy(r => r.RoleType)
+                .ThenBy(r => r.Name)
+                .ToList(),
+            Permissions = permissions,
+            Scopes = scopes
+        };
+    }
+
     private string BuildJwtToken(List<Claim> claims, DateTime expiration)
     {
         var secretKey = _configuration["Jwt:Key"];
